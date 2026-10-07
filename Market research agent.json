@@ -1,0 +1,413 @@
+{
+  "name": "Market research agent",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Market research agent",
+        "formDescription": "Market research agent",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "search_query",
+              "placeholder": "Enter Your Query",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Location",
+              "placeholder": "Provide Your Location",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Langauge",
+              "placeholder": "language",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "business category"
+            },
+            {
+              "fieldLabel": "city_name",
+              "placeholder": "city_name",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.3,
+      "position": [
+        0,
+        0
+      ],
+      "id": "b60c3cd7-34e5-4f2c-ab02-778f5ff68ef4",
+      "name": "On form submission",
+      "webhookId": "15d4daf6-e7db-40bc-9cea-1ee0f3bb420b"
+    },
+    {
+      "parameters": {
+        "operation": "google_maps",
+        "q": "={{ $json.search_query }}",
+        "additionalFields": {
+          "hl": "en",
+          "gl": "={{ $json.Location }}"
+        },
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-serpapi.serpApi",
+      "typeVersion": 1,
+      "position": [
+        416,
+        0
+      ],
+      "id": "3a010dc2-1685-4bee-a57d-22c1684f525e",
+      "name": "Google_maps search",
+      "credentials": {
+        "serpApi": {
+          "id": "VbtdRmG4L3g2astN",
+          "name": "Hp Serpapi"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "680a968f-f984-4ad8-bb67-57b187138e0a",
+              "name": "search_query",
+              "value": "={{ $json.search_query }}",
+              "type": "string"
+            },
+            {
+              "id": "4cb29e9a-7e5b-4529-b8dd-6daccfb41ff8",
+              "name": "Location",
+              "value": "={{ $json.Location }}",
+              "type": "string"
+            },
+            {
+              "id": "52442217-ea05-4f3a-98f5-b0503c4b5dde",
+              "name": "business category",
+              "value": "={{ $json['business category'] }}",
+              "type": "string"
+            },
+            {
+              "id": "b6bc18e4-92c0-4c7f-abaa-5b471f47d4a0",
+              "name": "city_name",
+              "value": "={{ $json.city_name }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        208,
+        0
+      ],
+      "id": "2a59d04c-714e-47db-a1ff-05748e4e22e2",
+      "name": "User Input Configuration"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1072,
+        -16
+      ],
+      "id": "6a0c3bb5-e105-4564-bd00-eecb6adbea76",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.reviews_link }}",
+        "sendQuery": true,
+        "specifyQuery": "json",
+        "jsonQuery": "={\n  \"api_key\": \"43a3d8256a315f3d0a559c7daa8db2d3c6c098df3c02ded53a49bb1745962216\"\n}",
+        "options": {
+          "allowUnauthorizedCerts": true,
+          "timeout": 3000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1280,
+        160
+      ],
+      "id": "dc7935f8-ca10-4310-820b-3efa64e42c7a",
+      "name": "Get Reviews Content"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Enhanced extraction with better filtering and validation\nconst localResults = $input.first().json.local_results || [];\nconst userConfig = $('User Input Configuration').item.json;\n\nconsole.log(`Processing ${localResults.length} search results for: ${userConfig.search_query}`);\n\n// Extract and filter places with more comprehensive data\nlet places = localResults.map(place => {\n  const placeData = {\n    place_name: place.title || 'Unknown',\n    address: place.address || 'No address',\n    rating: place.rating || 'No rating',\n    reviews_count: place.reviews || 0,\n    reviews_link: place.reviews_link || null,\n    data_id: place.data_id || null,\n    type: place.type || 'Unknown',\n    place_id: place.place_id || null,\n    lsig: place.lsig || null,\n    phone: place.phone || null,\n    website: place.website || null,\n    thumbnail: place.thumbnail || null,\n    operating_hours: place.operating_hours || null,\n    price_level: place.price_level || null,\n    plus_code: place.plus_code || null,\n    coordinates: {\n      lat: place.gps_coordinates?.latitude || null,\n      lng: place.gps_coordinates?.longitude || null\n    },\n    search_context: {\n      original_query: userConfig.search_query,\n      analysis_focus: userConfig.analysis_focus,\n      city: userConfig.city_name,\n      search_timestamp: new Date().toISOString()\n    }\n  };\n  \n  return placeData;\n}).filter(place => {\n  // Enhanced filtering - keep places that have either reviews_link OR sufficient basic data\n  return place.reviews_link || \n         (place.rating && place.rating !== 'No rating') || \n         place.reviews_count > 0;\n});\n\n// 👉 LIMIT RESULTS TO EXACTLY 4 OR 5\nplaces = places.slice(0, 5);\n\nconsole.log(`Filtered + limited to ${places.length} places`);\nconsole.log(`Analysis focus: ${userConfig.analysis_focus} in ${userConfig.city_name}`);\n\n// Return only 4–5 items\nreturn places.map(place => ({ json: place }));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        656,
+        -16
+      ],
+      "id": "de6171db-feba-4e95-a305-246246239c12",
+      "name": "Enhanced Extract Data"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Enhanced data combination with error handling\nconst currentItem = $('Loop Over Items').item;\nconst reviewsResponse = $input.first().json;\nconst userConfig = $('User Input Configuration').item.json;\n\n// Enhanced combined data with more comprehensive information\nconst combinedData = {\n  // Basic place information\n  place_name: currentItem.json.place_name,\n  address: currentItem.json.address,\n  rating: currentItem.json.rating,\n  reviews_count: currentItem.json.reviews_count,\n  data_id: currentItem.json.data_id,\n  type: currentItem.json.type,\n  phone: currentItem.json.phone,\n  website: currentItem.json.website,\n  coordinates: currentItem.json.coordinates,\n  operating_hours: currentItem.json.operating_hours,\n  price_level: currentItem.json.price_level,\n  \n  // Reviews content with error handling\n  reviews_content: reviewsResponse || { error: 'No reviews data available' },\n  \n  // Enhanced metadata for analysis\n  analysis_metadata: {\n    search_query: userConfig.search_query,\n    analysis_focus: userConfig.analysis_focus,\n    target_city: userConfig.city_name,\n    data_collection_time: new Date().toISOString(),\n    has_reviews: !!(reviewsResponse && reviewsResponse.reviews),\n    review_source: currentItem.json.reviews_link || 'No review link',\n    place_completeness_score: calculateCompletenessScore(currentItem.json)\n  }\n};\n\n// Function to calculate how complete the place data is\nfunction calculateCompletenessScore(placeData) {\n  const fields = ['place_name', 'address', 'rating', 'phone', 'website', 'operating_hours'];\n  const filledFields = fields.filter(field => \n    placeData[field] && placeData[field] !== 'Unknown' && placeData[field] !== 'No address'\n  );\n  return Math.round((filledFields.length / fields.length) * 100);\n}\n\nconsole.log(`Processing ${combinedData.analysis_metadata.analysis_focus}: ${combinedData.place_name}`);\nconsole.log(`Data completeness: ${combinedData.analysis_metadata.place_completeness_score}%`);\n\nreturn { json: combinedData };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1488,
+        160
+      ],
+      "id": "74274ae5-7ce2-4089-9e24-89b54e431866",
+      "name": "Enhanced Combine Data"
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        1344,
+        -112
+      ],
+      "id": "0405e137-05e9-4616-968a-45266ce10b88",
+      "name": "Aggregate"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Enhanced data preparation with flexible analysis structure\nconst allPlaces = $input.all();\nconst userConfig = $('User Input Configuration').item.json;\n\nconsole.log(`Preparing analysis for ${allPlaces.length} ${userConfig.analysis_focus} locations in ${userConfig.city_name}`);\n\n// Create comprehensive analysis dataset\nlet analysisPrompt = `MARKET RESEARCH DATA ANALYSIS\\n`;\nanalysisPrompt += `Research Focus: ${userConfig.analysis_focus}\\n`;\nanalysisPrompt += `Location: ${userConfig.city_name}\\n`;\nanalysisPrompt += `Search Query: \"${userConfig.search_query}\"\\n`;\nanalysisPrompt += `Total Locations Found: ${allPlaces.length}\\n`;\nanalysisPrompt += `Analysis Date: ${new Date().toLocaleDateString('vi-VN')}\\n\\n`;\n\n// Enhanced data summary\nanalysisPrompt += `=== DATASET OVERVIEW ===\\n`;\nlet totalReviews = 0;\nlet avgRating = 0;\nlet placesWithReviews = 0;\nlet completenessScores = [];\n\nallPlaces.forEach((place, index) => {\n  const data = place.json;\n  \n  // Calculate statistics\n  if (data.reviews_count && typeof data.reviews_count === 'number') {\n    totalReviews += data.reviews_count;\n  }\n  \n  if (data.rating && data.rating !== 'No rating') {\n    avgRating += parseFloat(data.rating) || 0;\n  }\n  \n  if (data.reviews_content && data.reviews_content.reviews) {\n    placesWithReviews++;\n  }\n  \n  if (data.analysis_metadata && data.analysis_metadata.place_completeness_score) {\n    completenessScores.push(data.analysis_metadata.place_completeness_score);\n  }\n  \n  // Add detailed place information\n  analysisPrompt += `\\n${index + 1}. ${data.place_name}\\n`;\n  analysisPrompt += `   Address: ${data.address}\\n`;\n  analysisPrompt += `   Rating: ${data.rating}/5 (${data.reviews_count || 0} reviews)\\n`;\n  \n  // Add contact and operational info if available\n  if (data.phone) analysisPrompt += `   Phone: ${data.phone}\\n`;\n  if (data.website) analysisPrompt += `   Website: ${data.website}\\n`;\n  if (data.operating_hours) analysisPrompt += `   Hours: ${JSON.stringify(data.operating_hours)}\\n`;\n  if (data.price_level) analysisPrompt += `   Price Level: ${data.price_level}\\n`;\n  \n  // Add review samples if available\n  if (data.reviews_content && data.reviews_content.reviews) {\n    analysisPrompt += `   Recent Reviews:\\n`;\n    data.reviews_content.reviews.slice(0, 5).forEach(review => {\n      const reviewText = review.snippet || review.text || review.comment || 'No text available';\n      const reviewRating = review.rating || 'No rating';\n      analysisPrompt += `   - \"${reviewText.substring(0, 200)}...\" (${reviewRating}/5)\\n`;\n    });\n  }\n  \n  analysisPrompt += `   Data Completeness: ${data.analysis_metadata?.place_completeness_score || 'N/A'}%\\n`;\n  analysisPrompt += `\\n${'-'.repeat(60)}\\n`;\n});\n\n// Add summary statistics\nconst avgRatingCalculated = allPlaces.length > 0 ? (avgRating / allPlaces.length).toFixed(2) : 0;\nconst avgCompleteness = completenessScores.length > 0 ? \n  (completenessScores.reduce((a, b) => a + b, 0) / completenessScores.length).toFixed(1) : 'N/A';\n\nanalysisPrompt += `\\n=== SUMMARY STATISTICS ===\\n`;\nanalysisPrompt += `Total Places Analyzed: ${allPlaces.length}\\n`;\nanalysisPrompt += `Places with Review Data: ${placesWithReviews}\\n`;\nanalysisPrompt += `Total Reviews Collected: ${totalReviews}\\n`;\nanalysisPrompt += `Average Rating: ${avgRatingCalculated}/5\\n`;\nanalysisPrompt += `Average Data Completeness: ${avgCompleteness}%\\n`;\n\nreturn {\n  json: {\n    analysis_prompt: analysisPrompt,\n    raw_data: allPlaces.map(place => place.json),\n    summary_stats: {\n      total_places: allPlaces.length,\n      places_with_reviews: placesWithReviews,\n      total_reviews: totalReviews,\n      average_rating: avgRatingCalculated,\n      average_completeness: avgCompleteness,\n      search_context: userConfig\n    }\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1552,
+        -112
+      ],
+      "id": "2e8c6f96-b15c-4a4f-83eb-5b710d9c1069",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Role:\nYou are an advanced Market Research Intelligence Agent specialized in deep analysis, insight generation, and actionable strategy development. Your job is to transform raw customer data into a comprehensive, high-value market analysis report.\n\n\nContext:\n\nYou have received real, user-generated market data about \"{{ $('User Input Configuration').item.json.search_query }}\" in {{ $('User Input Configuration').item.json.city_name }}\n\n\n{{ JSON.stringify($json.raw_data, null, 2) }}\n\n\nYour Mission:\n\nProduce a complete, insight-driven market analysis report using the structure below.\n\nAll insights must be data-driven, actionable, and written in professional, easy-to-understand in english.\n\n\nI. Executive Summary\n\n3–4 sentences capturing the most important insights\n\nLargest market opportunities\n\nImmediate action recommendations\n\n\n\nII. Market Overview\n\nMarket size and density for {{ $('User Input Configuration').item.json.search_query }}\n\n\n\nPrice segments and service quality levels\n\nGeographic distribution and high-demand (“hot”) areas\n\nCompetitive intensity and unserved market gaps\n\n\n\nIII. Customer Experience Analysis\n\nTop 5 most appreciated factors (with % of mentions)\n\nTop 5 most common problems (with frequency)\n\nOverall sentiment analysis\n\nKey pain points throughout the customer journey\n\n\n\nIV. Competitive Landscape\n\nAnalysis of 3–5 strongest competitors\n\nStrengths and weaknesses of each\n\nPricing strategy and value proposition\n\nPositioning gaps in the market\n\n\n\nV. Insights & Trends\n\nBehavioral patterns of target customers\n\nEmerging trends and shifting preferences\n\nSeasonal or time-based patterns (if any)\n\nTechnology adoption and digital readiness\n\n\n\nVI. Strategic Recommendations\n\nBest-fit business model for this market\n\nPricing and revenue strategy\n\nMarketing and customer acquisition strategy\n\nOperational excellence priorities\n\nInvestment focus and resource allocation\n\n\n\nVII. Action Plan\n\n3 immediate actions (next 30 days)\n\n3 mid-term initiatives (3–6 months)\n\nLong-term strategy (6–12 months)\n\n\n\n\nOutput Requirements\n\nUse specific numbers and patterns detected in the input dataset\n\nDeliver unique insights, not generic descriptions\n\nFocus heavily on actionable recommendations\n\nHighlight critical metrics and success factors\n\nSuggest KPI frameworks to track effectiveness\n\n\n",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        1760,
+        -112
+      ],
+      "id": "b65e5b5f-1432-4fd3-bf5d-3fb80109a625",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "sendTo": "mdahadali6679@gmail.com",
+        "subject": "=MARKET RESEARCH For {{ $('User Input Configuration').item.json.search_query }}",
+        "message": "=<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\" />\n<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\" />\n<title>Market Analysis Report — AI Agent (France data)</title>\n<style>\n  body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:#f6f8fb; margin:0; padding:20px; color:#222; }\n  .wrap { max-width:900px; margin:24px auto; background:#fff; border-radius:12px; box-shadow:0 6px 24px rgba(15,23,42,0.08); overflow:hidden;  }\n  .hero { background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); color:#fff; padding:28px 30px; text-align:center; }\n  .hero h1 { margin:0; font-size:22px; letter-spacing:0.2px; }\n  .hero p { margin:8px 0 0; opacity:0.95; font-size:13px; }\n  .body { padding:28px 34px; line-height:1.55; color:#22303f; }\n  h2 { color:#1f3b7a; border-bottom:2px solid #4aa3ff; padding-bottom:8px; margin-top:28px; }\n  h3 { color:#34495e; margin-top:18px; }\n  .notice { background:#fff9db; border:1px solid #ffecb3; padding:12px 14px; border-radius:8px; margin:14px 0; }\n  .muted { color:#6b7280; font-size:13px; }\n  .footer { background:#263447; color:#fff; padding:18px; text-align:center; border-radius:0 0 12px 12px; margin-top:22px; font-size:13px; }\n  .section { margin-bottom:10px; }\n  .mono { font-family: Menlo, Monaco, monospace; background:#f4f6f8; padding:8px 10px; border-radius:6px; display:inline-block; font-size:13px; }\n  @media (max-width:600px){ .body{padding:18px} .hero{padding:18px} }\n</style>\n</head>\n<body>\n  <div class=\"wrap\">\n    <div class=\"hero\">\n      <h1>📊 MARKET ANALYSIS REPORT</h1>\n      <p class=\"muted\">AI Agent — based on provided dataset (note: dataset is French, not New York)</p>\n      <div class=\"muted\" style=\"margin-top:8px; font-size:12px;\">Generated: November 19, 2025</div>\n    </div>\n\n    <div class=\"body\">\n\n      <div class=\"notice\">\n        <strong>Important data notice:</strong>\n        The provided user-generated market data labelled for <strong>New York</strong> is actually sourced from locations in <strong>France</strong> (Blois, Boulogne-Billancourt, Paris, Chamalières). This report therefore analyzes the French dataset and highlights the absence of New York data where relevant.\n      </div>\n\n      <h2>I. Executive Summary</h2>\n      <p>The provided dataset, despite being intended for New York, offers a glimpse into a nascent and diverse \"AI agent\" market in France. Key findings reveal a fragmented market encompassing website designers, computer consultants, AI-powered call centers, and business automation agencies. Customer satisfaction is polarized, with high praise for professional expertise and tangible efficiency gains, but significant negative sentiment arises from aggressive sales, poor technical support, and product reliability issues. The largest market opportunity lies in delivering transparent, highly responsive, and reliable AI solutions that genuinely automate tasks and improve customer experience, backed by strong post-sales support. Immediate actions include rectifying data collection for New York and clearly defining the target niche for AI agent services.</p>\n\n      <h2>II. Market Overview</h2>\n      <p><strong>Market Size and Density:</strong> Based on this limited dataset of 4 entities, the \"AI agent\" market appears low in density and loosely defined. The entities found (Aiaagency, AI3, AirAgent, Fleece Ai) are geographically dispersed across France (Blois, Boulogne-Billancourt, Paris, Chamalières), suggesting no concentrated \"hotspot\" for these services within this sample. The term \"AI agent\" is interpreted broadly, ranging from AI-enhanced web design to full business automation and call center solutions.</p>\n\n      <p><strong>Price Segments and Service Quality Levels:</strong> Price levels are not available in the dataset. Service quality is highly variable, with ratings ranging from 3.7 to a perfect 5.0. Companies with higher ratings (Aiaagency, Fleece Ai) emphasize professional expertise and effective, tailored solutions. AirAgent, despite offering a direct \"AI agent\" service, exhibits a bimodal quality perception, with initial low quality but recent improvements.</p>\n\n      <p><strong>Geographic Distribution and High-Demand Areas:</strong> All data points are located in various cities across France. <strong>There is no data for New York</strong>, rendering any analysis of high-demand areas in New York impossible with this dataset. Within France, the spread suggests that these services are not currently concentrated in a single urban hub within this sample.</p>\n\n      <p><strong>Competitive Intensity and Unserved Market Gaps:</strong> Competitive intensity appears low due to the diverse nature of services offered. The broad interpretation of \"AI agent\" indicates a significant unserved market gap for a clearly defined, specialized, and highly reliable AI agent solution—particularly in New York where data is missing. Negative feedback on AirAgent suggests a gap in reliable execution and customer support for dedicated AI agent services.</p>\n\n      <h2>III. Customer Experience Analysis</h2>\n      <p><strong>Overall Sentiment:</strong> Mixed — highly positive for value-driven, professional services and notably negative for providers failing on reliability and customer support. Aiaagency and Fleece Ai enjoy overwhelmingly positive reviews (5.0), while AirAgent carries historical negative sentiment related to initial product instability and aggressive practices.</p>\n\n      <h3>Top 5 Most Appreciated Factors (approximate frequency)</h3>\n      <ol>\n        <li><strong>Expertise & Professionalism (75%)</strong> — Praised across multiple providers.</li>\n        <li><strong>Effective Solutions & Efficiency Gains (60%)</strong> — Automation and process simplification valued.</li>\n        <li><strong>Responsiveness & Availability (50%)</strong> — Timely communication and problem solving.</li>\n        <li><strong>Customer Listening & Understanding (50%)</strong> — Providers who listen are rewarded.</li>\n        <li><strong>Innovation & Value-Added Ideas (25%)</strong> — Creative technical solutions appreciated.</li>\n      </ol>\n\n      <h3>Top 5 Most Common Problems</h3>\n      <ol>\n        <li>Poor Responsiveness & Communication (2 mentions)</li>\n        <li>Product Bugs & Unreliability (2 mentions)</li>\n        <li>Aggressive Sales Tactics & Billing Issues (2 mentions)</li>\n        <li>Lack of Technical Support / Missed Appointments (2 mentions)</li>\n        <li>Lack of Commercial Gesture (1 mention)</li>\n      </ol>\n\n      <p><strong>Key Customer Journey Pain Points:</strong> Aggressive sales and premature billing during initial engagement; onboarding issues from missed appointments and weak technical support; product bugs causing operational harm; poor support responsiveness.</p>\n\n      <h2>IV. Competitive Landscape</h2>\n\n      <h3>1. Aiaagency (Website Designer, Blois)</h3>\n      <p><strong>Strengths:</strong> 5.0 rating; praised for expertise, professionalism, responsiveness, and creative ideas. <strong>Weaknesses:</strong> Small sample of reviews; AI agent offering seems tangential to core web development.</p>\n\n      <h3>2. AI3 (Computer Consultant, Boulogne-Billancourt)</h3>\n      <p><strong>Strengths:</strong> Broad IT expertise (3.9 rating). <strong>Weaknesses:</strong> Older reviews (5–8 years), unclear current AI focus.</p>\n\n      <h3>3. AirAgent (Call Center, Paris)</h3>\n      <p><strong>Strengths:</strong> Direct AI call-management solution; recent positive reviews indicate improvement. <strong>Weaknesses:</strong> Historical reliability, aggressive billing, and onboarding failures; mixed overall rating (3.7).</p>\n\n      <h3>4. Fleece Ai (Chamalières)</h3>\n      <p><strong>Strengths:</strong> 5.0 rating, focused on automation and training; strong customer listening and concrete solutions. <strong>Weaknesses:</strong> Regional footprint and limited review count.</p>\n\n      <h2>V. Insights & Trends</h2>\n      <p><strong>Behavioral Patterns:</strong> ROI-driven buyers, trust-sensitive, value personalized support, and are actively seeking task automation (calls, admin).</p>\n      <p><strong>Trends:</strong> Operational AI adoption (internal ops & call handling); need for human touch in AI services; demand for AI training/consulting.</p>\n      <p><strong>Technology Adoption:</strong> Growing readiness, but high expectations for immediate reliability.</p>\n\n      <h2>VI. Strategic Recommendations (for potential New York entry — starting from French insights)</h2>\n      <ul>\n        <li><strong>Business model:</strong> Hybrid SaaS + High-touch service (scalable core product + premium onboarding/support).</li>\n        <li><strong>Pricing:</strong> Tiered subscription with value-based metrics; no upfront billing during trials to avoid trust issues.</li>\n        <li><strong>Marketing:</strong> Focus on tangible ROI case studies; target 2–3 niches (e.g., e-commerce, wellness, professional services); content & partnerships.</li>\n        <li><strong>Operations:</strong> Prioritize onboarding, robust technical support, product reliability, and transparent communication.</li>\n        <li><strong>Investment:</strong> Initial market research in NYC, hire AI & customer-success talent, strong QA and customer success tooling.</li>\n      </ul>\n\n      <h2>VII. Action Plan</h2>\n\n      <p><strong>KPI Framework:</strong> Lead conversion, CAC, NPS, CSAT, churn, agent accuracy, task completion rate, MRR, CLTV, ARPU.</p>\n\n      <h3>3 Immediate Actions (Next 30 days)</h3>\n      <ol>\n        <li>Rectify New York data collection: launch a new targeted research initiative with a narrow definition of \"AI agent\".</li>\n        <li>Define initial target niche & value proposition for NY based on observed French demand (call management, admin automation).</li>\n        <li>Establish trust-building protocols: transparent sales, clear billing, and genuine trial offerings.</li>\n      </ol>\n\n      <h3>3 Mid-Term Initiatives (3–6 months)</h3>\n      <ol>\n        <li>Build an MVP and recruit 5–10 NY pilot customers. Gather feedback and case studies.</li>\n        <li>Design onboarding & support plan based on pilot feedback, with dedicated technical contacts.</li>\n        <li>Launch content foundations (blogs, videos, landing page) targeted at New York buyers.</li>\n      </ol>\n\n      <h3>Long-Term Strategy (6–12 months)</h3>\n      <ol>\n        <li>Iterate and scale the product based on feedback; expand features and integrations.</li>\n        <li>Establish local partnerships and community presence in New York.</li>\n        <li>Build thought leadership and brand authority focusing on reliability, innovation, and measurable ROI.</li>\n      </ol>\n\n      <p class=\"muted\" style=\"margin-top:14px;\">If you would like this to be exported as a PDF, PowerPoint, or a branded report (logo/colors), tell me which format and what logo/colors to use and I’ll generate it for you.</p>\n\n    </div>\n\n    <div class=\"footer\">\n      <div style=\"font-weight:600\">🚀 Market Research Analytics System</div>\n      <div style=\"margin-top:6px;\">This report was automatically generated from user-supplied data. Analysis focus: <span class=\"mono\">AI Agent</span> • Data location used: <span class=\"mono\">France (Blois, Boulogne-Billancourt, Paris, Chamalières)</span></div>\n    </div>\n  </div>\n</body>\n</html>\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        2192,
+        -112
+      ],
+      "id": "90a0147b-f38b-4c0c-a8dc-e6789cfe60a1",
+      "name": "Send a message",
+      "webhookId": "4caa616f-11b1-4472-bed2-72c08b4cba3c",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "q4pDppvyl3DBQtmI",
+          "name": "HPteam"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1632,
+        96
+      ],
+      "id": "c0918eeb-4f15-49e5-80be-7e716d02caae",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "4QGvPlxB4IuZ8bx2",
+          "name": "Rahat Hossain: Google AI Studio"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "On form submission": [
+      {
+        "json": {
+          "search_query": "ai",
+          "Location": "us",
+          "Langauge": "en",
+          "business category": "it",
+          "city_name": "new york",
+          "submittedAt": "2025-11-19T08:28:06.139+01:00",
+          "formMode": "test"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "User Input Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google_maps search": {
+      "main": [
+        [
+          {
+            "node": "Enhanced Extract Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "User Input Configuration": {
+      "main": [
+        [
+          {
+            "node": "Google_maps search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Reviews Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Reviews Content": {
+      "main": [
+        [
+          {
+            "node": "Enhanced Combine Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enhanced Extract Data": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enhanced Combine Data": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "5f4a4fd7-5b1e-497e-895f-df02ae047c4e",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "5f00bba974abf03cb5183d4d65f8a9645a781b04770df6a7d08284fca87d50b3"
+  },
+  "id": "npSI9C8oux0Spg8y",
+  "tags": []
+}
