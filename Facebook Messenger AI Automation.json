@@ -1,0 +1,651 @@
+{
+  "name": "Facebook Messenger AI Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "multipleMethods": true,
+        "path": "01fce28d-bc1f-4381-b5cf-15f9b5e43f5d",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1136,
+        -368
+      ],
+      "id": "9f28d8fe-c0e2-4c7e-b650-6914123ba51c",
+      "name": "Webhook",
+      "webhookId": "01fce28d-bc1f-4381-b5cf-15f9b5e43f5d"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.query['hub.challenge'] }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -912,
+        -464
+      ],
+      "id": "8d416f76-ed47-497b-9c25-ef0eb807453b",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -912,
+        -272
+      ],
+      "id": "886f6897-4712-49e9-a04c-e4a34b960b5e",
+      "name": "Respond to Webhook1"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=User Message: {{ $json.body.entry[0].messaging[0].message.text }}",
+        "options": {
+          "systemMessage": "Role: \nYou are the official customer support and sales assistant for Samoli Fashion, a modest, faith-inspired clothing brand that mainly sells premium Islamic/Muslim-themed T-shirts. \nTone & Style: \n● Friendly, respectful, polite \n● Short but helpful \n● No slang \n● Maintain Islamic courtesy (e.g., Assalamu Alaikum, ) ● Never debate religious topics; stay neutral and positive \nYour Goals: \n1. Help customers choose the right T-shirt, size, color, and design. \n2. Give clear product details when asked. \n3. Encourage sales, but never push aggressively. \n4. Answer questions about price, delivery, return policy, size charts, fabric quality, etc. 5. Ask follow-up questions if needed to assist better. \n6. Always promote professionalism and positivity. \nProduct Knowledge: \n● All T-shirts are high-quality, comfortable, and soft. \n● Unisex sizing unless stated otherwise. \n● Designs are Islamic, minimalist, and lifestyle-oriented (e.g., Sunnah Inspired, Deen Over Dunya, etc.). \n● Sizes usually range from S to XXL (adjust if needed). \n● Use “current available stock” (don’t invent unavailable items). \nRules: \n● Do NOT promise anything the store cannot deliver. \n● Never create discounts unless the system says there is one. \n\nTools\nAlways Use product details Tool for get all the Product details and Price and quantity\n\nOrder received. \nAlways Use Order received Tool for receive an order before receive order Ask Name, Phone, Address. If you already have all other details no need to ask.\n\n\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        128,
+        -208
+      ],
+      "id": "015b0f58-b3f2-4652-bfa3-481e29ecb5d3",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -16,
+        32
+      ],
+      "id": "dc5695c9-50d3-42b5-819e-96c2c9830f24",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "yeViqDZ5m9cF84Pz",
+          "name": "Google Gemini(PaLM) Api account 509"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v23.0/926522230548168/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer EAAM6NtZBrD9ABQy0vSdm6hm5RmT5A2wrExkOrFCHDjQ9xLu9jQu0NZCwQkbOomUbZCQnQMLk2txQsBFObFaEzI8pSWScVwZBktlAqCfXrhgWiSlWAEgXufgvrxUxdrbDfXyg5KSfzo0uzVQObr4ZAbpDbkWdxZCBdsNK104EXKUuLSoVIfDsQWmzkaI5r4kkkrdKjLpVqNSwZDZD"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"messaging_type\": \"RESPONSE\",\n  \"recipient\": {\n    \"id\": \"{{ $('Webhook').item.json.body.entry[0].messaging[0].sender.id }}\"\n  },\n  \"message\": {\n    \"text\": \"{{ $json.output }}\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        864,
+        -208
+      ],
+      "id": "8e206a48-d1af-4048-a5a2-a403e398c026",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "for (const item of items) { \n// মে সে জ ফি ল্ডে র নাম 'output' ব্যবহার করা হচ্ছে \nconst messageField = 'output'; \nif (item.json[messageField] && typeof item.json[messageField] === 'string') { let safeMessage = item.json[messageField]; \n// 1. সমস্ত \\r (ক্যারে জ রি টার্ন) ক্যারে ক্টার মছেুছে দি ন (যদি থাকে ) \nsafeMessage = safeMessage.replace(/n\\r/g, ''); \n// 2. সমস্ত \\n (নি উ লাইন) ক্যারে ক্টারকে \\\\n দ্বারা প্রতি স্থাপন করুন \n// এটি নি শ্চি তভাবে JSON-এর জন্য বৈ ধ করে তুলবে । \nsafeMessage = safeMessage.replace(/\\n/g, '\\\\n'); \n// পুরাতন মে সে জ ফি ল্ডটিকে নতুন Escape করা মে সে জ দি য়ে আপডে ট করুন \nitem.json[messageField] = safeMessage; \n} \n} \nreturn items;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        624,
+        -208
+      ],
+      "id": "a8542fc8-6646-4c36-bd97-45c82e0e403e",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $json.body.entry[0].messaging[0].sender.id }}",
+        "contextWindowLength": 10
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        112,
+        32
+      ],
+      "id": "3798d044-5675-43c8-b2c9-56b8d6ff6c9c",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1i5KwD4JiwU1vE9bgh6sT5nSinXnUh0iFEGU-BjV1eA0",
+          "mode": "list",
+          "cachedResultName": "Product Datails",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1i5KwD4JiwU1vE9bgh6sT5nSinXnUh0iFEGU-BjV1eA0/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1i5KwD4JiwU1vE9bgh6sT5nSinXnUh0iFEGU-BjV1eA0/edit#gid=0"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        240,
+        32
+      ],
+      "id": "60081f90-14cd-41d2-a5d3-f77fe881688d",
+      "name": "Product Datails",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "5NJynt0zjNFnDN5k",
+          "name": "Google Sheets account 388"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Append row in sheet in Google Sheets",
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1qODYkEHsedJrS1aP3KjYZSfZiZ-GlzMkKpvs4de5a-A",
+          "mode": "list",
+          "cachedResultName": "Order Received",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1qODYkEHsedJrS1aP3KjYZSfZiZ-GlzMkKpvs4de5a-A/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1qODYkEHsedJrS1aP3KjYZSfZiZ-GlzMkKpvs4de5a-A/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Name": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Name', ``, 'string') }}",
+            "Number": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Number', ``, 'string') }}",
+            "Address": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Address', ``, 'string') }}",
+            "Product": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Product', ``, 'string') }}",
+            "Quintity": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Quintity', ``, 'string') }}",
+            "Price": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Price', ``, 'string') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Number",
+              "displayName": "Number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Address",
+              "displayName": "Address",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Product",
+              "displayName": "Product",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Quintity",
+              "displayName": "Quintity",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Price",
+              "displayName": "Price",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        368,
+        32
+      ],
+      "id": "73a6ffcb-4abe-41f3-a3a1-64f765b116d8",
+      "name": "Order Recived",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "5NJynt0zjNFnDN5k",
+          "name": "Google Sheets account 388"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.toolCalculator",
+      "typeVersion": 1,
+      "position": [
+        496,
+        32
+      ],
+      "id": "231e385a-b7e6-4cc9-a8c6-3174520b527f",
+      "name": "Calculator"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.body.entry[0].messaging[0].message.attachments[0].type }}",
+                    "rightValue": "image",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "4cc4d4e8-f93a-474e-9014-3950aba3b9e1"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "image"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "3d42d017-3963-4c0b-8a82-e790aa378666",
+                    "leftValue": "={{ $json.body.entry[0].messaging[0].message.attachments[0].type }}",
+                    "rightValue": "audio",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "audio"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "fbccb247-8617-422b-bfc6-de479cab0c64",
+                    "leftValue": "={{ $json.body.entry[0].messaging[0].message.text }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "exists",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "text"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -688,
+        -288
+      ],
+      "id": "01e45a10-9395-416d-a41c-50847aea1c44",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Webhook').item.json.body.entry[0].messaging[0].message.attachments[0].payload.url }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -448,
+        -320
+      ],
+      "id": "5b02151a-01a2-486e-8e0e-68a59f90e11e",
+      "name": "Audio"
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "operation": "transcribe",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        -224,
+        -320
+      ],
+      "id": "17619bac-359d-48b4-9aef-562c626c1f7a",
+      "name": "Transcribe a recording",
+      "credentials": {
+        "openAiApi": {
+          "id": "8kgmYHxI5sJra2QF",
+          "name": "OpenAi account 647"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Respond to Webhook1').item.json.body.entry[0].messaging[0].message.attachments[0].type }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -448,
+        -496
+      ],
+      "id": "7ad0388a-2b89-41de-a60a-e8ae73bda265",
+      "name": "HTTP Request1"
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "operation": "analyze",
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-2024-08-06",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-2024-08-06"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        -224,
+        -496
+      ],
+      "id": "ba08333c-feca-4934-99bc-4626c212b5c5",
+      "name": "Analyze image",
+      "credentials": {
+        "openAiApi": {
+          "id": "8kgmYHxI5sJra2QF",
+          "name": "OpenAi account 647"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook1": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Product Datails": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Order Recived": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculator": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Audio",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Audio": {
+      "main": [
+        [
+          {
+            "node": "Transcribe a recording",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcribe a recording": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "Analyze image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze image": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "cab14854-cb8a-4078-9d4b-8758a0daf880",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "5f00bba974abf03cb5183d4d65f8a9645a781b04770df6a7d08284fca87d50b3"
+  },
+  "nodeGroups": [],
+  "id": "Qo4AJ88WELXx93Jf",
+  "tags": []
+}
